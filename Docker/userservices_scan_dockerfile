@@ -1,0 +1,64 @@
+# See https://aka.ms/containerfastmode to understand how Visual Studio uses this Dockerfile to build your images for faster debugging.
+# Docker cmd to test userservices_scan_dockerfile: docker build -f ./userservices_scan_dockerfile . -t usermscantest
+
+FROM mcr.microsoft.com/dotnet/sdk:6.0 AS build-env
+WORKDIR /app
+
+# SonarQube scanner parameters
+ARG SONAR_PROJECT_KEY=''
+ARG SONAR_HOST_URL=https://13.hosted.com
+ARG SONAR_TOKEN=''
+
+# Install Sonar Scanner, Coverlet and Java (required for Sonar Scanner)
+RUN apt-get update && apt-get install -y openjdk-11-jdk
+RUN dotnet tool install --global dotnet-sonarscanner
+#RUN dotnet tool install --global coverlet.console
+ENV PATH="$PATH:/root/.dotnet/tools"
+RUN echo $PATH
+
+# Copy csproj files
+COPY Showcase.UserServices/*.csproj ./Showcase.UserServices/
+COPY Showcase.Api.Identity/*.csproj ./Showcase.Api.Identity/
+COPY Notification.Events/*.csproj ./Notification.Events/
+COPY Showcase.Cloud.Models/*.csproj ./Showcase.Cloud.Models/
+COPY Showcase.Cloud.Resources/*.csproj ./Showcase.Cloud.Resources/
+COPY Showcase.Domain/*.csproj ./Showcase.Domain/
+
+RUN true
+
+# Copy config files, for 3rd party Nuget package authorization
+WORKDIR /app
+COPY IBillder/*.config ./Showcase.UserServices/
+
+RUN true
+
+WORKDIR /app/Showcase.UserServices
+# Start Sonar Scanner
+RUN dotnet sonarscanner begin /k:"$SONAR_PROJECT_KEY" /d:sonar.host.url="$SONAR_HOST_URL" /d:sonar.login="$SONAR_TOKEN"
+
+# Dotnet restore package dependencies
+WORKDIR /app/Showcase.UserServices
+RUN dotnet restore --configfile ./nuget.config --disable-parallel
+
+# Copy source folders in prep for Build
+WORKDIR /app
+
+COPY Showcase.UserServices/ ./Showcase.UserServices/
+COPY Showcase.Api.Identity/ ./Showcase.Api.Identity/
+COPY Notification.Events/ ./Notification.Events/
+COPY Showcase.Cloud.Models/ ./Showcase.Cloud.Models/
+COPY Showcase.Cloud.Resources/ ./Showcase.Cloud.Resources/
+COPY Showcase.Domain/ ./Showcase.Domain/
+
+# Dot net build
+WORKDIR /app/Showcase.UserServices
+RUN dotnet build "Showcase.UserServices.csproj" -c Release -o /app/build
+
+#WORKDIR /app/Showcase.UserServices
+#RUN dotnet test /p:CollectCoverage=true /p:CoverletOutputFormat=opencover /p:CoverletOutput="/coverage"
+
+# End Sonar Scanner
+WORKDIR /app/Showcase.UserServices
+RUN dotnet sonarscanner end /d:sonar.login="$SONAR_TOKEN"
+
+# END - userservices_scan_dockerfile
