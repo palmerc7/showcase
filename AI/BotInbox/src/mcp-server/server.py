@@ -5,6 +5,7 @@ BotInbox.ai POC – Local MCP Auth Server
 - Uses an in-memory mock database (accept / reject)
 """
 
+from contextlib import asynccontextmanager
 from typing import Dict, Any, Optional
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -109,7 +110,13 @@ def list_users() -> dict:
 # ------------------------------------------------------------------
 # FastAPI app (REST + MCP HTTP transport)
 # ------------------------------------------------------------------
-app = FastAPI(title="BotInbox Auth MCP + REST")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    async with mcp.session_manager.run():
+        yield
+
+
+app = FastAPI(title="BotInbox Auth MCP + REST", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -120,7 +127,7 @@ app.add_middleware(
 )
 
 # Mount the MCP server under /mcp (streamable HTTP)
-app.mount("/mcp", mcp.streamable_http_app())
+app.mount("/mcp", mcp.streamable_http_app(streamable_http_path="/"))
 
 
 class AuthRequest(BaseModel):
