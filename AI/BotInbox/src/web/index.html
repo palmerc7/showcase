@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>BotInbox.ai – Auth Landing</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>BotInbox.ai</h1>
+      <p class="subtitle">Local Passkey / MCP Auth</p>
+    </header>
+
+    <section class="card">
+      <h2>Sign in</h2>
+      <p class="hint">This is a mock of Passkey authentication. In production this would trigger real WebAuthn.</p>
+
+      <label for="userId">User ID</label>
+      <input id="userId" type="text" value="demo" placeholder="demo / alice / bob" />
+
+      <div class="buttons">
+        <button id="btnPasskey" class="primary">Sign in with Passkey</button>
+        <button id="btnList" class="secondary">List Mock Users</button>
+      </div>
+
+      <pre id="result" class="result hidden"></pre>
+    </section>
+
+    <footer>
+      <small>MCP endpoint: <code>http://localhost:8000/mcp</code> · REST: <code>/auth/check</code></small>
+    </footer>
+  </div>
+
+  <script>
+    const API = "http://localhost:8000";
+
+    async function checkAuth() {
+      const userId = document.getElementById("userId").value.trim() || "test";
+      const resultEl = document.getElementById("result");
+      resultEl.classList.remove("hidden");
+      resultEl.textContent = "Checking…";
+
+      try {
+        const res = await fetch(`${API}/auth/check`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user_id: userId,
+            credential_proof: "passkey-ok"   // mock of a successful WebAuthn assertion
+          })
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+          resultEl.textContent = `✅ ACCEPT\n\n${JSON.stringify(data, null, 2)}`;
+          resultEl.className = "result success";
+        } else {
+          resultEl.textContent = `❌ REJECT\n\n${JSON.stringify(data.detail || data, null, 2)}`;
+          resultEl.className = "result error";
+        }
+      } catch (err) {
+        resultEl.textContent = `Network error: ${err.message}`;
+        resultEl.className = "result error";
+      }
+    }
+
+    async function listUsers() {
+      const resultEl = document.getElementById("result");
+      resultEl.classList.remove("hidden");
+      try {
+        const res = await fetch(`${API}/auth/users`);
+        const data = await res.json();
+        resultEl.textContent = JSON.stringify(data, null, 2);
+        resultEl.className = "result";
+      } catch (err) {
+        resultEl.textContent = err.message;
+        resultEl.className = "result error";
+      }
+    }
+
+    document.getElementById("btnPasskey").addEventListener("click", checkAuth);
+    document.getElementById("btnList").addEventListener("click", listUsers);
+  </script>
+</body>
+</html>

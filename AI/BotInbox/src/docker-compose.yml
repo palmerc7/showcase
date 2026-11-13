@@ -1,0 +1,32 @@
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: botinbox-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+
+  mcp-auth:
+    build: ./mcp-server
+    container_name: botinbox-mcp
+    ports:
+      - "8000:8000"          # FastAPI + MCP HTTP
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    depends_on:
+      - ollama
+    restart: unless-stopped
+
+  web:
+    build: ./web
+    container_name: botinbox-web
+    ports:
+      - "8080:80"
+    depends_on:
+      - mcp-auth
+    restart: unless-stopped
+
+volumes:
+  ollama_data:
